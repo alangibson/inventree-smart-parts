@@ -10,8 +10,8 @@ setuptools.setup(
     description="Intelligent inventory assistant for InvenTree that automates part creation from MPN lookup.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/0neShot/SmartParts",
-    packages=setuptools.find_packages(
+    url="https://github.com/0neShot/inventree-smart-parts",
+    packages=setuptools.find_namespace_packages(
         include=["inventree_smart_parts", "inventree_smart_parts.*"]
     ),
     include_package_data=True,
@@ -24,9 +24,9 @@ setuptools.setup(
             "SmartPartsPlugin = inventree_smart_parts.core:SmartPartsPlugin"
         ]
     },
+    license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.9",
