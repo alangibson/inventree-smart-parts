@@ -696,6 +696,18 @@ def create_part(request):
         result.message,
     )
 
+    if result.success:
+        try:
+            from .services.parameter_normalizer import learn_editor_parameter_mappings
+
+            saved_inputs = {(p.name, p.value) for p in part_data.parameters}
+            learn_editor_parameter_mappings(plugin, [
+                p for p in body.get("parameters", [])
+                if (p.get("name"), p.get("value")) in saved_inputs
+            ])
+        except Exception:
+            logger.warning("Editor parameter learning failed (non-fatal)", exc_info=True)
+
     # ── Persistent Category Learning ──────────────────────────────────────────
     # If the user's chosen category differs from what the fuzzy matcher suggested
     # (or the matcher had no suggestion), record this correction for future imports.

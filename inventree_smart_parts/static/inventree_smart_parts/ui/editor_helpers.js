@@ -81,7 +81,7 @@ function buildParameterValueOptions(searchData) {
       const key = JSON.stringify([value, label]);
       if (seen.has(key)) return;
       seen.add(key);
-      options.push(`<option value="${escHtml(value)}" label="${escHtml(label)}"></option>`);
+      options.push(`<option value="${escHtml(value)}" label="${escHtml(label)}" data-source-name="${escHtml(p.name)}" data-source="${escHtml(sourceName)}"></option>`);
     });
   });
   return options.join('');
@@ -139,6 +139,12 @@ function toggleParameterDropdown(button) {
       input.value = option.value;
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
+      if (button.dataset.choices === 'sp-param-values') {
+        const row = wrapper.closest('tr');
+        row.dataset.sourceName = option.dataset.sourceName || '';
+        row.dataset.source = option.dataset.source || '';
+        row.dataset.manual = 'true';
+      }
       input.focus();
       closeParameterDropdowns();
     };
@@ -178,6 +184,14 @@ document.addEventListener('click', event => {
 document.addEventListener('focusin', event => {
   if (!event.target.closest('.sp-param-dropdown')) closeParameterDropdowns();
 });
+document.addEventListener('input', event => {
+  const wrapper = event.target.closest('.sp-param-dropdown');
+  if (wrapper?.querySelector('[data-choices="sp-param-values"]')) {
+    // A typed value no longer identifies a selected supplier property.
+    delete wrapper.closest('tr').dataset.sourceName;
+    delete wrapper.closest('tr').dataset.source;
+  }
+});
 
 function buildParamRow(p) {
   const isManual = Boolean(p.manual);
@@ -196,7 +210,7 @@ function buildParamRow(p) {
     badge = '<span class="sp-badge sp-badge-db">DB</span>';
   }
   const valCls = p.status === 'changed' ? 'sp-param-input changed' : 'sp-param-input';
-  return `<tr class="${rowCls}" data-manual="${isManual ? 'true' : 'false'}" data-status="${escHtml(p.status || '')}">
+  return `<tr class="${rowCls}" data-manual="${isManual ? 'true' : 'false'}" data-status="${escHtml(p.status || '')}" data-source-name="${escHtml(p.source_name || '')}" data-source="${escHtml(p.source || '')}">
     <td><button type="button" class="sp-del-btn" onclick="delParamRow(this)" title="Delete">×</button></td>
     <td>${buildParameterDropdown(p.name, 'sp-param-names', 'Parameter name')}</td>
     <td>${buildParameterDropdown(p.value, 'sp-param-values', 'Parameter value', valCls)}${note}</td>
@@ -422,6 +436,8 @@ function loadCategoryParameters(catId) {
         status: 'new',
         dbVal: null,
         manual: true,
+        source_name: tr.dataset.sourceName || '',
+        source: tr.dataset.source || '',
       });
     } else if (status === 'db_only' && name) {
       dbRows.push({

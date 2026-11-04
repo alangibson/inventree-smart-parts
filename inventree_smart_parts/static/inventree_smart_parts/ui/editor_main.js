@@ -323,7 +323,11 @@ function collectFormData() {
     const value = inputs[1]?.value.trim();
     const unit  = inputs[2]?.value.trim() || '';
     const isManual = tr.getAttribute('data-manual') === 'true';
-    if (name && value) params.push({ name, value, unit, manual: isManual });
+    if (name && value) params.push({
+      name, value, unit, manual: isManual,
+      source_name: tr.dataset.sourceName || '',
+      source: tr.dataset.source || '',
+    });
   });
 
   /* Suppliers */

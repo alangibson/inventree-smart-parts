@@ -319,6 +319,43 @@ def normalize_parameter(name: str, value: str, unit: str = "") -> NormalizedPara
     return NormalizedParam(name=name, value=raw_value, unit=raw_unit)
 
 
+def learn_editor_parameter_mappings(plugin, parameters: list) -> None:
+    """Persist explicit provider-property selections after a successful editor save."""
+    if not plugin.get_setting("LEARN_PARAMETER_MAPPINGS_FROM_EDITOR"):
+        return
+
+    import json
+
+    corrections = {}
+    for parameter in parameters:
+        if not isinstance(parameter, dict):
+            continue
+        source_name = parameter.get("source_name")
+        name = parameter.get("name")
+        value = parameter.get("value")
+        if not all(isinstance(item, str) and item.strip() for item in (source_name, name, value)):
+            continue
+        if not parameter.get("manual"):
+            continue
+        corrections[sanitize_parameter_name(source_name)] = (source_name.strip(), name.strip())
+    if not corrections:
+        return
+
+    mappings = json.loads(plugin.get_setting("LEARNED_PARAMETER_MAPPINGS") or "{}")
+    if not isinstance(mappings, dict):
+        raise ValueError("Learned parameter mappings must be a JSON object")
+    original = mappings.copy()
+    for key, (source_name, name) in corrections.items():
+        # Replace equivalent aliases too, so an older spelling cannot override
+        # the correction on the next import. Preserve all unrelated mappings.
+        for existing in list(mappings):
+            if sanitize_parameter_name(existing) == key:
+                del mappings[existing]
+        mappings[source_name] = name
+    if mappings != original:
+        plugin.set_setting("LEARNED_PARAMETER_MAPPINGS", json.dumps(mappings, ensure_ascii=False))
+
+
 def normalize_parameter_list(parameters: list) -> list:
     """
     Normalize a list of parameter dicts [{'name':…, 'value':…, 'unit':…}, …].

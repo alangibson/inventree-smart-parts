@@ -187,6 +187,15 @@ class SmartPartsPlugin(
             ),
             "default": "{}",
         },
+        "LEARN_PARAMETER_MAPPINGS_FROM_EDITOR": {
+            "name": "Learn parameter mappings from editor",
+            "description": (
+                "On successful editor saves, remember mappings from selected provider "
+                "properties to parameter names in Learned Parameter Mappings (JSON)."
+            ),
+            "default": False,
+            "validator": bool,
+        },
         "LEARNED_PARAMETER_MAPPINGS": {
             "name": "Learned Parameter Mappings (JSON)",
             "description": (
