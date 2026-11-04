@@ -38,7 +38,7 @@ logger = logging.getLogger("inventree_smart_parts.services.category")
 # -----------------------------------------------------------------------------
 #  Category cache
 # -----------------------------------------------------------------------------
-_category_cache_flat: Optional[List[Dict]] = None
+_CATEGORY_CACHE_KEY = "smartparts.category_tree"
 
 # -----------------------------------------------------------------------------
 #  Built-in synonym table  (always active, augmented by user synonyms)
@@ -812,11 +812,12 @@ _STOPWORDS: Set[str] = {
 
 
 def get_category_tree() -> List[Dict]:
-    """Fetch all InvenTree categories as a flat list with full paths."""
-    global _category_cache_flat
+    """Fetch categories once per request, using InvenTree's stored paths."""
+    from InvenTree.cache import get_session_cache, set_session_cache
 
-    if _category_cache_flat is not None:
-        return _category_cache_flat
+    cached = get_session_cache(_CATEGORY_CACHE_KEY)
+    if cached is not None:
+        return cached
 
     try:
         from part.models import PartCategory
@@ -825,11 +826,7 @@ def get_category_tree() -> List[Dict]:
 
         flat = []
         for cat in categories:
-            path_parts = []
-            current = cat
-            while current is not None:
-                path_parts.insert(0, current.name)
-                current = current.parent
+            path_parts = (cat.pathstring or cat.name).split("/")
 
             flat.append(
                 {
@@ -848,7 +845,7 @@ def get_category_tree() -> List[Dict]:
                 }
             )
 
-        _category_cache_flat = flat
+        set_session_cache(_CATEGORY_CACHE_KEY, flat)
         logger.debug(f"Loaded {len(flat)} InvenTree categories")
         return flat
 
@@ -858,9 +855,10 @@ def get_category_tree() -> List[Dict]:
 
 
 def clear_cache():
-    """Clear the category cache (call after category changes)."""
-    global _category_cache_flat
-    _category_cache_flat = None
+    """Clear this request's category cache after category changes."""
+    from InvenTree.cache import set_session_cache
+
+    set_session_cache(_CATEGORY_CACHE_KEY, None)
 
 
 def get_all_categories_for_ui() -> List[Dict]:
