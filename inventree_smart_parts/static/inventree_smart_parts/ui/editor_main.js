@@ -231,12 +231,8 @@ function renderEditor(data, existing) {
   loadStockLocations();
   loadLabelTemplates();
 
-  // If LIMIT_PARAMETERS_TO_CATEGORY is active: gate parameters immediately
-  // based on whatever category was auto-resolved (or show the prompt if none).
-  if (window._limitParamsToCategory) {
-    const initCatId = catId ? parseInt(catId) : null;
-    loadCategoryParameters(initCatId);
-  }
+  // Load category choices regardless of whether parameter filtering is enabled.
+  loadCategoryParameters(catId ? parseInt(catId) : null);
 
   // Show label section if receive checkbox starts checked
   const enableCb = document.getElementById('enableReceive');

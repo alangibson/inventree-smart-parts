@@ -63,6 +63,122 @@ function mergeParams(apiParams, dbParams) {
   return rows;
 }
 
+// Use the original source properties so merged/filtered data cannot hide choices.
+function buildParameterValueOptions(searchData) {
+  const options = [];
+  const seen = new Set();
+  const sources = Object.entries(searchData?.sources || {})
+    .filter(([, source]) => source && !source.error);
+  if (!sources.length) {
+    sources.push(['', { parameters: searchData?.merged?.all_parameters || searchData?.merged?.parameters || [] }]);
+  }
+  sources.forEach(([sourceName, source]) => {
+    (source.parameters || []).forEach(p => {
+      if (p.value == null) return;
+      const value = String(p.value);
+      const property = [p.name, p.unit].filter(Boolean).join(' · ');
+      const label = [source.supplier_name || sourceName, property].filter(Boolean).join(' / ');
+      const key = JSON.stringify([value, label]);
+      if (seen.has(key)) return;
+      seen.add(key);
+      options.push(`<option value="${escHtml(value)}" label="${escHtml(label)}"></option>`);
+    });
+  });
+  return options.join('');
+}
+
+let categoryParameterRequest = 0;
+let categoryParameterTemplates = [];
+
+// Native datalists filter against the inferred value, hiding unrelated properties.
+// Keep the option stores, but show every option in an explicit editable dropdown.
+function buildParameterDropdown(value, choices, label, cls = 'sp-param-input') {
+  return `<div class="sp-param-dropdown">
+    <input type="text" class="${cls}" value="${escHtml(value)}" aria-label="${label}"
+           placeholder="${label}" autocomplete="off" onfocus="openParameterDropdown(this)" onclick="openParameterDropdown(this)" onkeydown="parameterDropdownKey(event)">
+    <button type="button" class="sp-param-toggle" data-choices="${choices}"
+            aria-label="Show all ${label.toLowerCase()} choices" aria-expanded="false"
+            onclick="toggleParameterDropdown(this)">▾</button>
+    <div class="sp-param-options" hidden onkeydown="parameterDropdownKey(event)"></div>
+  </div>`;
+}
+
+function closeParameterDropdowns() {
+  document.querySelectorAll('.sp-param-options').forEach(menu => { menu.hidden = true; });
+  document.querySelectorAll('.sp-param-toggle').forEach(button => button.setAttribute('aria-expanded', 'false'));
+}
+
+function openParameterDropdown(input) {
+  const wrapper = input.closest('.sp-param-dropdown');
+  if (wrapper.querySelector('.sp-param-options').hidden) {
+    toggleParameterDropdown(wrapper.querySelector('.sp-param-toggle'));
+  }
+}
+
+function toggleParameterDropdown(button) {
+  const wrapper = button.closest('.sp-param-dropdown');
+  const menu = wrapper.querySelector('.sp-param-options');
+  const wasOpen = !menu.hidden;
+  closeParameterDropdowns();
+  if (wasOpen) return;
+  menu.replaceChildren();
+  // Name choices come directly from the category response's templates, never
+  // from accepted_parameters, dropped_parameters, or supplier properties.
+  const options = button.dataset.choices === 'sp-param-names'
+    ? categoryParameterTemplates.map(template => ({value: template.name, label: template.units || ''}))
+    : document.getElementById(button.dataset.choices)?.querySelectorAll('option') || [];
+  options.forEach(option => {
+    const choice = document.createElement('button');
+    choice.type = 'button';
+    choice.className = 'sp-param-choice';
+    choice.textContent = button.dataset.choices === 'sp-param-names'
+      ? option.value
+      : [option.label, option.value].filter(Boolean).join(' / ');
+    choice.onclick = () => {
+      const input = wrapper.querySelector('input');
+      input.value = option.value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.focus();
+      closeParameterDropdowns();
+    };
+    menu.appendChild(choice);
+  });
+  if (!options.length) {
+    const empty = document.createElement('span');
+    empty.textContent = 'No choices available. Enter a value directly.';
+    menu.appendChild(empty);
+  }
+  menu.hidden = false;
+  button.setAttribute('aria-expanded', 'true');
+}
+
+function parameterDropdownKey(event) {
+  const wrapper = event.target.closest('.sp-param-dropdown');
+  const toggle = wrapper.querySelector('.sp-param-toggle');
+  const menu = wrapper.querySelector('.sp-param-options');
+  if (event.key === 'Escape') {
+    wrapper.querySelector('input').focus();
+    closeParameterDropdowns();
+    event.preventDefault();
+  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (menu.hidden) toggleParameterDropdown(toggle);
+    const choices = Array.from(menu.querySelectorAll('button'));
+    const index = choices.indexOf(document.activeElement);
+    const next = index < 0 ? (event.key === 'ArrowDown' ? 0 : choices.length - 1)
+      : (index + (event.key === 'ArrowDown' ? 1 : -1) + choices.length) % choices.length;
+    choices[next]?.focus();
+  }
+}
+
+document.addEventListener('click', event => {
+  if (!event.target.closest('.sp-param-dropdown')) closeParameterDropdowns();
+});
+document.addEventListener('focusin', event => {
+  if (!event.target.closest('.sp-param-dropdown')) closeParameterDropdowns();
+});
+
 function buildParamRow(p) {
   const isManual = Boolean(p.manual);
   let rowCls = 'sp-param-row', badge = '', note = '';
@@ -79,18 +195,18 @@ function buildParamRow(p) {
   } else if (p.status === 'db_only') {
     badge = '<span class="sp-badge sp-badge-db">DB</span>';
   }
-  const nameRo = (!isManual && p.status !== 'new') ? 'readonly' : '';
   const valCls = p.status === 'changed' ? 'sp-param-input changed' : 'sp-param-input';
   return `<tr class="${rowCls}" data-manual="${isManual ? 'true' : 'false'}" data-status="${escHtml(p.status || '')}">
     <td><button type="button" class="sp-del-btn" onclick="delParamRow(this)" title="Delete">×</button></td>
-    <td><input type="text" class="sp-param-input" value="${escHtml(p.name)}" ${nameRo} placeholder="Name"></td>
-    <td><input type="text" class="${valCls}" value="${escHtml(p.value)}" placeholder="Value">${note}</td>
+    <td>${buildParameterDropdown(p.name, 'sp-param-names', 'Parameter name')}</td>
+    <td>${buildParameterDropdown(p.value, 'sp-param-values', 'Parameter value', valCls)}${note}</td>
     <td><input type="text" class="sp-param-input" value="${escHtml(p.unit)}" placeholder="—" style="width:70px"></td>
     <td>${badge}</td>
   </tr>`;
 }
 
 function buildParamsTable(rows, dropped = []) {
+  categoryParameterTemplates = [];
   const body = rows.map(buildParamRow).join('');
   let dropHtml = '';
   if (dropped && dropped.length > 0) {
@@ -101,12 +217,12 @@ function buildParamsTable(rows, dropped = []) {
       </p>`;
   }
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-      <strong>Parameters</strong>
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:.5rem">
       <button type="button" class="sp-btn sp-btn-outline sp-btn-sm" onclick="addParamRow()">
         <i class="fas fa-plus"></i> Add Parameter
       </button>
     </div>
+    <datalist id="sp-param-values">${buildParameterValueOptions(window._searchData)}</datalist>
     <table class="sp-param-table">
       <thead><tr>
         <th style="width:32px"></th><th>Name</th><th>Value</th>
@@ -247,10 +363,6 @@ function buildCategorySelect(categories, selectedId) {
 
 /* ── Category change handler: gate parameters on category selection ── */
 function onCategoryChange(sel) {
-  // If LIMIT_PARAMETERS_TO_CATEGORY is not active, skip gating.
-  // The flag is injected by the backend into window._limitParamsToCategory.
-  if (!window._limitParamsToCategory) return;
-
   const catId = parseInt(sel.value) || null;
   loadCategoryParameters(catId);
 }
@@ -263,8 +375,12 @@ function onCategoryChange(sel) {
 function loadCategoryParameters(catId) {
   const paramSection = document.querySelector('.sp-editor-section #paramTbody')?.closest('.sp-editor-section');
   if (!paramSection) return;
+  const requestId = ++categoryParameterRequest;
+  categoryParameterTemplates = [];
+  closeParameterDropdowns();
 
   if (!catId) {
+    if (!window._limitParamsToCategory) return;
     // No valid category – hide table, show prompt
     const existing = paramSection.querySelector('#paramTbody');
     if (existing) existing.closest('table')?.parentElement && (existing.closest('table').style.display = 'none');
@@ -338,13 +454,23 @@ function loadCategoryParameters(catId) {
         unit: currentValues[k].unit,
       }));
 
-  fetch('api/category/parameters/', {
+  return fetch('api/category/parameters/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-    body: JSON.stringify({ category_id: catId, attributes: attrsToSend }),
+    body: JSON.stringify({ category_id: catId, attributes: window._limitParamsToCategory ? attrsToSend : [] }),
   })
   .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
   .then(data => {
+    // Ignore responses for an older category or an editor that has been replaced.
+    if (requestId !== categoryParameterRequest || !paramSection.isConnected) return;
+    categoryParameterTemplates = data.templates || [];
+    // A user may have opened a Name dropdown while the request was pending.
+    paramSection.querySelectorAll('[data-choices="sp-param-names"][aria-expanded="true"]').forEach(button => {
+      button.setAttribute('aria-expanded', 'false');
+      button.nextElementSibling.hidden = true;
+      toggleParameterDropdown(button);
+    });
+    if (!window._limitParamsToCategory) return;
     if (data.structural) {
       // Structural category slipped through – show warning, do not update
       let notice2 = paramSection.querySelector('#sp-cat-param-notice');
@@ -358,7 +484,8 @@ function loadCategoryParameters(catId) {
       return;
     }
 
-    // Re-render parameter table with accepted parameters only
+    // Category templates define the editable rows even when no supplier property
+    // was inferred. Otherwise an empty accepted list removes every name control.
     const accepted = data.accepted_parameters || [];
     const dropped  = data.dropped_parameters  || [];
 
@@ -381,6 +508,19 @@ function loadCategoryParameters(catId) {
       ...dbRows,
       ...manualRows,
     ];
+    const rowNames = new Set(mergedRows.map(p => p.name.toLowerCase()));
+    (data.templates || []).forEach(template => {
+      if (rowNames.has(template.name.toLowerCase())) return;
+      const edited = currentValues[template.name.toLowerCase()];
+      mergedRows.push({
+        name: template.name,
+        value: edited?.value || '',
+        unit: edited?.unit || template.units || '',
+        status: 'new',
+        manual: false,
+      });
+      rowNames.add(template.name.toLowerCase());
+    });
 
     tbody.innerHTML = mergedRows.map(buildParamRow).join('');
 

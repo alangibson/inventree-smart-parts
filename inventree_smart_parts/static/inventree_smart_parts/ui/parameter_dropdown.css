@@ -1,0 +1,7 @@
+.sp-param-dropdown{position:relative;display:flex;min-width:150px}
+.sp-param-dropdown .sp-param-input{padding-right:2rem}
+.sp-param-toggle{position:absolute;right:1px;top:1px;bottom:1px;width:1.8rem;border:0;border-left:1px solid var(--sp-border);border-radius:0 4px 4px 0;background:var(--sp-bg,#fff);color:var(--sp-text,#333);cursor:pointer}
+.sp-param-options{position:absolute;top:100%;left:0;z-index:100;min-width:100%;width:max-content;max-width:min(520px,75vw);max-height:260px;overflow:auto;background:var(--sp-bg,#fff);color:var(--sp-text,#333);border:1px solid var(--sp-border);border-radius:5px;box-shadow:0 4px 12px #0002;padding:.25rem}
+.sp-param-options[hidden]{display:none}
+.sp-param-choice{display:block;width:100%;text-align:left;white-space:normal;padding:.4rem .5rem;border:0;border-radius:3px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.sp-param-choice:hover,.sp-param-choice:focus{background:rgba(99,102,241,.12);outline:2px solid var(--sp-primary);outline-offset:-2px}
