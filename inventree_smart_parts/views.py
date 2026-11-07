@@ -357,6 +357,7 @@ def _run_all_api_searches(plugin, mpn: str):
             client = DigiKeyClient(
                 client_id=plugin.get_setting("DIGIKEY_CLIENT_ID"),
                 client_secret=plugin.get_setting("DIGIKEY_CLIENT_SECRET"),
+                description_field=plugin.get_setting("DIGIKEY_DESCRIPTION_FIELD"),
             )
             r = client.search_by_mpn(mpn)
             if r:
@@ -1116,6 +1117,7 @@ def test_connection(request, provider: str):
         client = DigiKeyClient(
             client_id=plugin.get_setting("DIGIKEY_CLIENT_ID"),
             client_secret=plugin.get_setting("DIGIKEY_CLIENT_SECRET"),
+            description_field=plugin.get_setting("DIGIKEY_DESCRIPTION_FIELD"),
         )
     elif provider == "lcsc":
         client = LCSCClient()

@@ -73,6 +73,18 @@ class SmartPartsPlugin(
             "default": True,
             "validator": bool,
         },
+        "DIGIKEY_DESCRIPTION_FIELD": {
+            "name": "DigiKey Description Field",
+            "description": (
+                "Preferred DigiKey description. Falls back to the other description "
+                "when the selected field is empty."
+            ),
+            "default": "ProductDescription",
+            "choices": [
+                ("ProductDescription", "ProductDescription"),
+                ("DetailedDescription", "DetailedDescription"),
+            ],
+        },
         # ── LCSC ──
         "LCSC_ENABLED": {
             "name": "Enable LCSC",

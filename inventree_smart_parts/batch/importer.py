@@ -495,6 +495,7 @@ def _process_single_row(
             client = DigiKeyClient(
                 client_id=plugin_instance.get_setting("DIGIKEY_CLIENT_ID"),
                 client_secret=plugin_instance.get_setting("DIGIKEY_CLIENT_SECRET"),
+                description_field=plugin_instance.get_setting("DIGIKEY_DESCRIPTION_FIELD"),
             )
             r = client.search_by_mpn(mpn)
             if r:

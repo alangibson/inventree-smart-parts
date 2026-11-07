@@ -29,10 +29,16 @@ class DigiKeyClient(BaseApiClient):
     TOKEN_URL = "https://api.digikey.com/v1/oauth2/token"
     SEARCH_URL = "https://api.digikey.com/products/v4/search/keyword"
 
-    def __init__(self, client_id: str, client_secret: str, **kwargs):
+    def __init__(self, client_id: str, client_secret: str,
+                 description_field: str = "ProductDescription", **kwargs):
         super().__init__(**kwargs)
         self.client_id = client_id
         self.client_secret = client_secret
+        self.description_field = (
+            description_field
+            if description_field in ("ProductDescription", "DetailedDescription")
+            else "ProductDescription"
+        )
         self._access_token: Optional[str] = None
         self._token_expiry: float = 0
 
@@ -257,9 +263,23 @@ class DigiKeyClient(BaseApiClient):
         elif isinstance(manufacturer_info, str):
             manufacturer = manufacturer_info
 
-        description = raw.get("ProductDescription", "") or raw.get(
-            "DetailedDescription", ""
+        # v4 nests descriptions; retain compatibility with legacy flat responses.
+        descriptions = raw.get("Description")
+        if not isinstance(descriptions, dict):
+            descriptions = {}
+        alternate = (
+            "DetailedDescription"
+            if self.description_field == "ProductDescription"
+            else "ProductDescription"
         )
+        description = ""
+        for field_name in (self.description_field, alternate):
+            for value in (descriptions.get(field_name), raw.get(field_name)):
+                if isinstance(value, str) and value.strip():
+                    description = value.strip()
+                    break
+            if description:
+                break
 
         # Packaging
         package = ""
