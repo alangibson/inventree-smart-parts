@@ -15,7 +15,6 @@ from django.views.decorators.csrf import csrf_exempt
 
 logger = logging.getLogger("inventree_smart_parts.views")
 
-
 def _is_useless_param_value(value: str) -> bool:
     """Thin wrapper around part_creator.is_useless_value for parameter filtering."""
     from .services.part_creator import is_useless_value

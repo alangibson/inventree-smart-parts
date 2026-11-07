@@ -73,9 +73,13 @@ function renderResults(data) {
 
   if (data.duplicate) {
     fetch(`api/part/${data.duplicate.part_id}/`)
-      .then(r => r.json())
-      .then(existing => { _existingData = existing; renderEditor(data, existing); })
-      .catch(()       => renderEditor(data, null));
+      .then(r => { if (!r.ok) throw new Error('Could not load saved part'); return r.json(); })
+      .then(existing => {
+        if (existing.error) throw new Error(existing.error);
+        _existingData = existing;
+        renderEditor(data, existing);
+      })
+      .catch(() => showError('Could not load saved part values. Please search again.'));
   } else {
     renderEditor(data, null);
   }
@@ -85,6 +89,8 @@ function renderResults(data) {
 function renderEditor(data, existing) {
   const m  = data.merged;
   const ex = existing;
+  const searchField = (id, label, apiVal, dbVal, type) =>
+    buildSearchField(id, label, apiVal, dbVal, type, !!data.duplicate);
 
   _suppliers = buildInitialSuppliers(data, ex);
   const paramRows = mergeParams(m.parameters || [], ex ? ex.parameters : []);
@@ -167,14 +173,14 @@ function renderEditor(data, existing) {
       <!-- Description -->
       <div class="sp-editor-section">
         <p class="sp-section-title">Description</p>
-        ${buildField('edit-name', 'Name',        m.mpn,          ex?.name,        'input')}
-        ${buildField('edit-desc', 'Description', m.description, ex?.description, 'textarea')}
+        ${searchField('edit-name', 'Name', m.mpn, ex?.name, 'input')}
+        ${searchField('edit-desc', 'Description', m.description, ex?.description, 'textarea')}
       </div>
 
       <!-- Links -->
       <div class="sp-editor-section">
         <p class="sp-section-title">Links</p>
-        ${buildField('edit-ds',  'Datasheet-URL', m.datasheet_url, ex?.link,      'input')}
+        ${searchField('edit-ds', 'Datasheet URL', m.datasheet_url, ex?.link, 'input')}
         ${buildField('edit-img', 'Image-URL',      m.image_url,     ex?.image_url, 'input')}
       </div>
 

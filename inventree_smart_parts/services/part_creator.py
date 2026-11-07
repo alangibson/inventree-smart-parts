@@ -309,26 +309,27 @@ def _create_new_part(data: PartData, category_id: Optional[int]) -> "Part":
 
 
 def _update_existing_part(
-    part_id: int, data: PartData, category_id: Optional[int]
+    part_id: int, data: PartData, category_id: Optional[int],
 ) -> "Part":
     """Update an existing InvenTree Part with new data.
 
-    This is deliberately non-destructive: existing values are NEVER
-    overwritten. Only truly empty fields receive new values.
+    Non-empty names, descriptions and datasheet URLs replace existing values.
+    Only assign a category when none is set.
     """
     from part.models import Part, PartCategory
 
     part = Part.objects.get(pk=part_id)
     changed = False
 
-    # Never touch part.name – it was set from the MPN at creation time
-    # and the user may have renamed it manually.
+    if data.name:
+        part.name = data.name
+        changed = True
 
-    if data.description and not part.description:
+    if data.description:
         part.description = data.description[:250]
         changed = True
 
-    if data.datasheet_url and not part.link:
+    if data.datasheet_url:
         part.link = data.datasheet_url
         changed = True
 

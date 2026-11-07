@@ -16,7 +16,7 @@ function escHtml(s) {
 }
 
 /* ── Field row builder ─────────────────────────────────────────── */
-function buildField(id, label, apiVal, dbVal, type) {
+function buildField(id, label, apiVal, dbVal, type, extraContent = '') {
   const av = String(apiVal ?? '');
   const dv = String(dbVal ?? '');
   // Don't flag image URLs as "changed" when the DB value is a local InvenTree
@@ -33,8 +33,31 @@ function buildField(id, label, apiVal, dbVal, type) {
   return `
     <div class="sp-field">
       <label for="${id}">${escHtml(label)}</label>
-      <div class="sp-input-wrap">${ctrl}${note}</div>
+      <div class="sp-input-wrap">${ctrl}${note}${extraContent}</div>
     </div>`;
+}
+
+/* Keep saved values editable and offer differing search values explicitly. */
+function buildSearchField(id, label, apiVal, dbVal, type, updating) {
+  if (!updating) return buildField(id, label, apiVal, dbVal, type);
+  const searchValue = String(apiVal ?? '');
+  const savedValue = String(dbVal ?? '');
+  const mismatch = searchValue.trim() !== savedValue.trim();
+  const suggestion = mismatch
+    ? `<div class="sp-search-suggestion">
+         <button type="button" class="sp-btn sp-btn-outline sp-btn-sm" data-target="${id}"
+                 data-search-value="${escHtml(searchValue)}" onclick="useSearchField(this)">Use search result</button>
+         <span class="sp-search-value">${escHtml(searchValue)}</span>
+       </div>` : '';
+  const field = buildField(id, label, savedValue, savedValue, type, suggestion);
+  return mismatch
+    ? field.replace('class="sp-input"', 'class="sp-input sp-input-changed"') : field;
+}
+
+function useSearchField(button) {
+  const input = document.getElementById(button.dataset.target);
+  input.value = button.dataset.searchValue;
+  trackEdit(input);
 }
 
 /* ── Parameter helpers ─────────────────────────────────────────── */
